@@ -1,0 +1,107 @@
+From: Vita Chumakova <me@ezhevita.dev>
+Date: Sat, 28 Aug 2021 00:58:41 +0300
+Subject: [PATCH] Use own images, a couple of fixes, disable SSE4.2 check
+
+---
+ .env                                  |  8 ++++----
+ clickhouse/config.xml                 |  2 +-
+ docker-compose.yml                    | 10 +++++-----
+ install/check-minimum-requirements.sh | 11 -----------
+ 4 files changed, 10 insertions(+), 21 deletions(-)
+
+diff --git a/.env b/.env
+index a7830cfc4c..470840c2ac 100644
+--- a/.env
++++ b/.env
+@@ -5,8 +5,8 @@ SENTRY_EVENT_RETENTION_DAYS=90
+ SENTRY_BIND=9000
+ # Set SENTRY_MAIL_HOST to a valid FQDN (host/domain name) to be able to send emails!
+ # SENTRY_MAIL_HOST=example.com
+-SENTRY_IMAGE=getsentry/sentry:nightly
+-SNUBA_IMAGE=getsentry/snuba:nightly
+-RELAY_IMAGE=getsentry/relay:nightly
+-SYMBOLICATOR_IMAGE=getsentry/symbolicator:nightly
++SENTRY_IMAGE=vita7/sentry:latest
++SNUBA_IMAGE=vita7/snuba:latest
++RELAY_IMAGE=vita7/relay:latest
++SYMBOLICATOR_IMAGE=vita7/symbolicator:latest
+ WAL2JSON_VERSION=latest
+\ No newline at end of file
+diff --git a/clickhouse/config.xml b/clickhouse/config.xml
+index 55cdbbd82b..cecb7d987f 100644
+--- a/clickhouse/config.xml
++++ b/clickhouse/config.xml
+@@ -1,5 +1,5 @@
+ <yandex>
+-    <max_server_memory_usage_to_ram_ratio from_env="MAX_MEMORY_USAGE_RATIO" />
++    <max_server_memory_usage_to_ram_ratio>0.3</max_server_memory_usage_to_ram_ratio>
+     <logger>
+         <level>information</level>
+         <console>1</console>
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 6314f8803d..844012b275 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -92,7 +92,7 @@ x-snuba-defaults: &snuba_defaults
+ services:
+   smtp:
+     <<: *restart_policy
+-    image: tianon/exim4
++    image: vita7/exim4
+     hostname: ${SENTRY_MAIL_HOST:-}
+     volumes:
+       - "sentry-smtp:/var/spool/exim4"
+@@ -144,7 +144,7 @@ services:
+         target: /opt/sentry/
+   zookeeper:
+     <<: *restart_policy
+-    image: "confluentinc/cp-zookeeper:5.5.0"
++    image: "watershine/cp-zookeeper:6.1.0-arm64"
+     environment:
+       ZOOKEEPER_CLIENT_PORT: "2181"
+       CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+@@ -158,13 +158,13 @@ services:
+     healthcheck:
+       <<: *healthcheck_defaults
+       test:
+-        ["CMD-SHELL", 'echo "ruok" | nc -w 2 -q 2 localhost 2181 | grep imok']
++        ["CMD-SHELL", 'echo "ruok" | nc -w 2 localhost 2181 | grep imok']
+   kafka:
+     <<: *restart_policy
+     depends_on:
+       zookeeper:
+         <<: *depends_on-healthy
+-    image: "confluentinc/cp-kafka:5.5.0"
++    image: "watershine/cp-kafka:6.1.0-arm64"
+     environment:
+       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+       KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+@@ -186,7 +186,7 @@ services:
+       test: ["CMD-SHELL", "nc -z localhost 9092"]
+   clickhouse:
+     <<: *restart_policy
+-    image: "yandex/clickhouse-server:20.3.9.70"
++    image: "lunalabsltd/clickhouse-server:20.6.7.4-arm"
+     ulimits:
+       nofile:
+         soft: 262144
+diff --git a/install/check-minimum-requirements.sh b/install/check-minimum-requirements.sh
+index 149b7d91da..7a2839bd27 100644
+--- a/install/check-minimum-requirements.sh
++++ b/install/check-minimum-requirements.sh
+@@ -35,15 +35,4 @@ elif [[ "$RAM_AVAILABLE_IN_DOCKER" -lt "$MIN_RAM_SOFT" ]]; then
+   echo "WARN: Recommended minimum RAM available to Docker is $MIN_RAM_SOFT MB, found $RAM_AVAILABLE_IN_DOCKER MB"
+ fi
+ 
+-#SSE4.2 required by Clickhouse (https://clickhouse.yandex/docs/en/operations/requirements/)
+-# On KVM, cpuinfo could falsely not report SSE 4.2 support, so skip the check. https://github.com/ClickHouse/ClickHouse/issues/20#issuecomment-226849297
+-IS_KVM=$(docker run --rm busybox grep -c 'Common KVM processor' /proc/cpuinfo || :)
+-if [[ "$IS_KVM" -eq 0 ]]; then
+-  SUPPORTS_SSE42=$(docker run --rm busybox grep -c sse4_2 /proc/cpuinfo || :)
+-  if [[ "$SUPPORTS_SSE42" -eq 0 ]]; then
+-    echo "FAIL: The CPU your machine is running on does not support the SSE 4.2 instruction set, which is required for one of the services Sentry uses (Clickhouse). See https://git.io/JvLDt for more info."
+-    exit 1
+-  fi
+-fi
+-
+ echo "${_endgroup}"

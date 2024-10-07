@@ -1,0 +1,21 @@
+From: Vita Chumakova <me@ezhevita.dev>
+Date: Sat, 28 Aug 2021 00:36:32 +0300
+Subject: [PATCH] Fix arch and use original image
+
+---
+ Dockerfile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 0b71163699..620a8dc209 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,6 +1,6 @@
+-ARG BUILD_ARCH=x86_64
++ARG BUILD_ARCH=aarch64
+ ARG BUILD_LIBC=musl
+-FROM getsentry/rust-musl-cross:$BUILD_ARCH-$BUILD_LIBC AS sentry-build
++FROM messense/rust-musl-cross:$BUILD_ARCH-$BUILD_LIBC AS sentry-build
+ 
+ ARG BUILD_ARCH
+ ARG BUILD_LIBC

@@ -1,0 +1,18 @@
+From: Vita Chumakova <me@ezhevita.dev>
+Date: Sat, 28 Aug 2021 00:23:34 +0300
+Subject: [PATCH] Use own image in dockerfile
+
+---
+ Dockerfile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index a72d65420..20a7c95fd 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM getsentry/sentry-cli:1 AS sentry-cli
++FROM vita7/sentry-cli:latest AS sentry-cli
+ FROM debian:stretch-slim AS symbolicator-build
+ 
+ WORKDIR /work

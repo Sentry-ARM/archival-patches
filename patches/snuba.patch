@@ -1,0 +1,72 @@
+From: Vita Chumakova <me@ezhevita.dev>
+Date: Sat, 28 Aug 2021 00:40:09 +0300
+Subject: [PATCH] Add a few packages in order to build successfully
+
+---
+ Dockerfile | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index d8d2706e52..2b02a83c8a 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -8,11 +8,12 @@ RUN set -ex; \
+         libexpat1 \
+         liblz4-1 \
+         libpcre3 \
++        librdkafka1 \
+     ; \
+     rm -rf /var/lib/apt/lists/*
+ 
+ ENV GOSU_VERSION=1.12 \
+-    GOSU_SHA256=0f25a21cf64e58078057adc78f38705163c1d564a959ff30a891c31917011a54
++    GOSU_SHA256=ff6f0b36315d2013d4fcc442cded0e0403d6bb29abc4cd6f94f2bde90bf97a38
+ 
+ RUN set -x \
+     && buildDeps=" \
+@@ -21,7 +22,7 @@ RUN set -x \
+     && apt-get update && apt-get install -y --no-install-recommends $buildDeps \
+     && rm -rf /var/lib/apt/lists/* \
+     # grab gosu for easy step-down from root
+-    && wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-amd64" \
++    && wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-arm64" \
+     && echo "$GOSU_SHA256 /usr/local/bin/gosu" | sha256sum --check --status \
+     && chmod +x /usr/local/bin/gosu \
+     && apt-get purge -y --auto-remove $buildDeps
+@@ -34,17 +35,26 @@ ENV PIP_NO_CACHE_DIR=off \
+ # Install dependencies first because requirements.txt is way less likely to be changed.
+ COPY requirements.txt ./
+ RUN set -ex; \
++    export RUST_VERSION=1.54.0; \
++    export RUSTUP_HOME=/usr/local/rustup; \
++    export CARGO_HOME=/usr/local/cargo; \
++    export PATH=/usr/local/cargo/bin:$PATH; \
+     \
+     buildDeps=' \
++        ca-certificates \
++        curl \
+         gcc \
+         libc6-dev \
+         liblz4-dev \
+         libpcre3-dev \
+         wget \
++        librdkafka-dev \
+     '; \
+     apt-get update; \
+     apt-get install -y $buildDeps --no-install-recommends; \
+     \
++    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain $RUST_VERSION; \
++    \
+     pip install -r requirements.txt; \
+     \
+     mkdir /tmp/uwsgi-dogstatsd; \
+@@ -56,6 +66,9 @@ RUN set -ex; \
+     mv dogstatsd_plugin.so /var/lib/uwsgi/; \
+     uwsgi --need-plugin=/var/lib/uwsgi/dogstatsd --help > /dev/null; \
+     \
++    rustup uninstall $RUST_VERSION; \
++    rustup self uninstall -y; \
++    \
+     apt-get purge -y --auto-remove $buildDeps; \
+     rm -rf /var/lib/apt/lists/*;
+ 
